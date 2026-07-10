@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environnements virtuels
+venv/
+.venv/
+env/
+
+# Éditeurs / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Données personnelles : on ignore TOUS les CSV...
+*.csv
+# ...sauf les exemples neutres explicitement nommés example*.csv
+!example*.csv
+
+# Spec perso (contexte arabe/Pia) — retire cette ligne si tu veux la publier
+SPEC_conjugator.md
+
+# Divers
+*.log
