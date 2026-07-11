@@ -1,16 +1,22 @@
 import csv
-from dataclasses import dataclass
+from pathlib import Path
+import sys
+from models.verb import Verb
+PRONOUNS = ['ana', 'enta', 'ente', 'houwe', 'hiye', 'nehna', 'ento', 'henne']
 
-@dataclass
-class Verb:
-    verbe: str
-    sens: str
-    temps: str
-    conjugaisons: dict[str, str]
-
-
-
-with open('names.csv', newline='') as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        print(row['first_name'], row['last_name'])
+def parse_verb(filepath: str | Path) -> list[Verb]:
+    try:
+        with open(filepath, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            verbs=[]
+            for row in reader:
+                if all(v == "" for k, v in row.items() if k != "verb"):
+                    continue
+                verbs.append(Verb(row['verb'], 
+                                  row['meaning'], 
+                                  row['tense'], 
+                                  {p: row[p] for p in PRONOUNS if row[p]},
+                                  row['arab']))
+        return verbs
+    except FileNotFoundError:
+       raise 

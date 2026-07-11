@@ -11,7 +11,7 @@ def request(action, **params):
 def invoke(action, **params):
     requestJson = json.dumps(request(action, **params)).encode('utf-8')
     logging.debug(f"la requete json {requestJson}")
-    response = json.load(urllib.request.urlopen(urllib.request.Request(DEFAULT_DECK, requestJson), timeout=5))
+    response = json.load(urllib.request.urlopen(urllib.request.Request(DEFAULT_URL, requestJson), timeout=5))
     logging.debug(f"la reponse {response}")
     if len(response) != 2:
         raise Exception('response has an unexpected number of fields')
