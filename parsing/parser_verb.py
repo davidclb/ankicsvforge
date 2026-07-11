@@ -10,6 +10,7 @@ def parse_verb(filepath: str | Path) -> list[Verb]:
             reader = csv.DictReader(csvfile)
             verbs=[]
             for row in reader:
+                # Skip if the the line contains a time
                 if all(v == "" for k, v in row.items() if k != "verb"):
                     continue
                 verbs.append(Verb(row['verb'], 
