@@ -1,15 +1,23 @@
 import logging
-from anki.actions import add_notes, check_model, create_conjugation_deck, create_conjugation_model
-from parsing.parser_verb import parse_verb 
+from anki.actions import (
+    add_notes,
+    check_model,
+    create_conjugation_deck,
+    create_conjugation_model,
+)
+from parsing.parser_verb import parse_verb
 import sys
 from urllib.error import URLError
 
 from anki.api import invoke
 
+
 def main():
-    logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
     try:
-        invoke('sync')
+        invoke("sync")
     except URLError:
         logging.error("Anki not open, please open first anki")
         sys.exit(1)
@@ -25,9 +33,7 @@ def main():
     create_conjugation_deck()
     for verb in verbs:
         add_notes(verb)
-    
 
 
-
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
