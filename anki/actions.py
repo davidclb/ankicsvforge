@@ -51,7 +51,7 @@ def make_template(pronom: str) -> dict:
         "Name": f"Card {pronom}",
         "Front": f"""({{{{Meaning}}}})
                      <br><br>
-                      {pronom} — {{{{Tense}}}}
+                      {pronom}— {{{{Tense}}}}
                     <br><br>
                     {{{{type:{pronom}}}}}""",
         "Back": f"""{{{{FrontSide}}}}
