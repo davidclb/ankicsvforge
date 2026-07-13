@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 import sys
-from models.verb import Verb
+from models.models import Verb
 
 PRONOUNS = ["ana", "enta", "ente", "houwe", "hiye", "nehna", "ento", "henne"]
 

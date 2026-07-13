@@ -8,3 +8,10 @@ class Verb:
     tense: str
     conjugation: dict[str, str]
     arab: str
+
+
+@dataclass
+class Vocab:
+    transliteration: str
+    meaning: str
+    arab: str

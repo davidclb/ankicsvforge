@@ -1,10 +1,10 @@
 import logging
 
 from anki.api import invoke
-from models.verb import Verb
+from models.models import Verb, Vocab
 
 PRONOUNS = ["Ana", "Enta", "Ente", "Houwe", "Hiye", "Nehna", "Ento", "Henne"]
-INORDERFIELDS = [
+INORDERFIELDS_VERB = [
     "Verb",
     "Meaning",
     "Tense",
@@ -20,10 +20,30 @@ INORDERFIELDS = [
     "Arab",
 ]
 
+INORDERFIELDS_VOCAB = [
+    "Transliteration",
+    "Meaning",
+    "Arab",
+]
+
 
 def check_model(modelName: str) -> bool:
     models = invoke("modelNames")
     return modelName in models
+
+
+def check_note_verb(verb: str, tense: str) -> bool:
+    params_findNotes = {"query": f"Verb:{verb} Tense:{tense}"}
+    result = invoke("findNotes", **params_findNotes)
+    logging.debug(result)
+    return result != []
+
+
+def check_note_vocab(transliteration: str) -> bool:
+    params_findNotes = {"query": f"Transliteration:{transliteration}"}
+    result = invoke("findNotes", **params_findNotes)
+    logging.debug(result)
+    return result != []
 
 
 def make_template(pronom: str) -> dict:
@@ -44,17 +64,48 @@ def make_template(pronom: str) -> dict:
     }
 
 
-def create_conjugation_model():
+def create_model_verb(modelName: str):
 
     params = {
-        "modelName": "LebaneseConjugator",
-        "inOrderFields": INORDERFIELDS,
+        "modelName": modelName,
+        "inOrderFields": INORDERFIELDS_VERB,
         "css": "Optional CSS with default to builtin css",
         "isCloze": False,
         "cardTemplates": [make_template(p) for p in PRONOUNS],
     }
-    if not check_model("LebaneseConjugator"):
-        logging.info("Lebanese conjugator model doesn't exist")
+    if check_model(modelName):
+        logging.info(f"{modelName} model already exist")
+
+    else:
+        logging.info(f"{modelName} model doesn't exist")
+        logging.info("Creating...")
+        invoke("createModel", **params)
+
+
+def create_model_vocab(modelName: str):
+
+    params = {
+        "modelName": modelName,
+        "inOrderFields": INORDERFIELDS_VOCAB,
+        "css": "Optional CSS with default to builtin css",
+        "isCloze": False,
+        "cardTemplates": [
+            {
+                "Name": f"Card VOCAB",
+                "Front": f"""({{{{Meaning}}}})
+                     <br><br>""",
+                "Back": f"""
+                    {{{{Transliteration}}}}
+                    <hr>
+                    {{{{Arab}}}}""",
+            }
+        ],
+    }
+    if check_model(modelName):
+        logging.info(f"{modelName} model already exist")
+
+    else:
+        logging.info(f"{modelName} model doesn't exist")
         logging.info("Creating...")
         invoke("createModel", **params)
 
@@ -64,19 +115,22 @@ def check_deck(deckName: str) -> bool:
     return deckName in decks
 
 
-def create_conjugation_deck():
-    if not check_deck("LebaneseConjugator"):
-        logging.info("Lebanese conjugator deck doesn't exist")
+def create_deck(deckName: str):
+    if check_deck(deckName):
+        logging.info(f"{deckName} deck already exist")
+
+    else:
+        logging.info(f"{deckName} deck doesn't exist")
         logging.info("Creating...")
-        invoke("createDeck", deck="LebaneseConjugator")
+        invoke("createDeck", deck=deckName)
         logging.info("Deck created")
 
 
-def add_notes(verb: Verb):
-    params = {
+def add_notes_verb(verb: Verb, deckName: str, modelName: str) -> bool:
+    params_addNote = {
         "note": {
-            "deckName": "LebaneseConjugator",
-            "modelName": "LebaneseConjugator",
+            "deckName": deckName,
+            "modelName": modelName,
             "fields": {
                 "Verb": verb.verb,
                 "Meaning": verb.meaning,
@@ -101,11 +155,48 @@ def add_notes(verb: Verb):
                     "checkAllModels": False,
                 },
             },
-            "tags": ["type::verb ", f"verb::tense::{verb.tense}"],
+            "tags": ["type::verb", f"verb::tense::{verb.tense}"],
         }
     }
-    logging.debug("Les params")
-    logging.debug(params)
     # verifier d'abord que la note existe ou pas
+    if check_note_verb(verb.verb, verb.tense):
+        logging.info(f"Note for {verb.verb} {verb.tense} already exist")
+        return False
+    else:
+        logging.info(f"Creation of note for {verb.verb} {verb.tense} ")
+        invoke("addNote", **params_addNote)
+        return True
     # ensuite montrer toute les cartes qui vont etre crées
-    invoke("addNote", **params)
+
+
+def add_notes_vocab(vocab: Vocab, deckName: str, modelName: str) -> bool:
+    params_addNote = {
+        "note": {
+            "deckName": deckName,
+            "modelName": modelName,
+            "fields": {
+                "Transliteration": vocab.transliteration,
+                "Meaning": vocab.meaning,
+                "Arab": vocab.arab,
+            },
+            "options": {
+                "allowDuplicate": False,
+                "duplicateScope": "deck",
+                "duplicateScopeOptions": {
+                    "deckName": "Default",
+                    "checkChildren": False,
+                    "checkAllModels": False,
+                },
+            },
+            "tags": ["type::vocab"],
+        }
+    }
+    # verifier d'abord que la note existe ou pas
+    if check_note_vocab(vocab.transliteration):
+        logging.info(f"Note for {vocab.transliteration} already exist")
+        return False
+
+    else:
+        logging.info(f"Creation of note for {vocab.transliteration} ")
+        invoke("addNote", **params_addNote)
+        return True
