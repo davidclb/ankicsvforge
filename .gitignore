@@ -234,10 +234,12 @@ env/
 .idea/
 .DS_Store
 
-# Données personnelles : on ignore TOUS les CSV...
+# Données personnelles : on ignore TOUS les CSV et TSV...
 *.csv
-# ...sauf les exemples neutres explicitement nommés example*.csv
+*.tsv
+# ...sauf les exemples neutres explicitement nommés example*.csv / example*.tsv
 !example*.csv
+!example*.tsv
 
 # Spec perso (contexte arabe/Pia) — retire cette ligne si tu veux la publier
 SPEC_conjugator.md
