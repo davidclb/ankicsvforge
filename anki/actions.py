@@ -35,14 +35,12 @@ def check_model(modelName: str) -> bool:
 def check_note_verb(verb: str, tense: str) -> bool:
     params_findNotes = {"query": f"Verb:{verb} Tense:{tense}"}
     result = invoke("findNotes", **params_findNotes)
-    logging.debug(result)
     return result != []
 
 
 def check_note_vocab(transliteration: str) -> bool:
     params_findNotes = {"query": f"Transliteration:{transliteration}"}
     result = invoke("findNotes", **params_findNotes)
-    logging.debug(result)
     return result != []
 
 
