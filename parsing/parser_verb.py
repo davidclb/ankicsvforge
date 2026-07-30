@@ -21,7 +21,8 @@ def parse_verb(filepath: str | Path) -> list[Verb]:
                         row["meaning"],
                         row["tense"],
                         {p: row[p] for p in PRONOUNS if row[p]},
-                        row["arab"],
+                        row["arabic"],
+                        row["source"],
                     )
                 )
         return verbs

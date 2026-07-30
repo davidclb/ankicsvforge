@@ -17,7 +17,11 @@ def parse_vocab(filepath: str | Path) -> list[Vocab]:
                     Vocab(
                         row["transliteration"],
                         row["meaning"],
-                        row["arab"],
+                        row["arabic"],
+                        row["dual"],
+                        row["feminine"],
+                        row["plural"],
+                        row["source"],
                     )
                 )
         return vocabs

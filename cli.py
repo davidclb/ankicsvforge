@@ -9,6 +9,7 @@ from anki.actions import (
     create_deck,
     create_model_verb,
     create_model_vocab,
+    toUpdate,
 )
 
 from models.models import Verb, Vocab
@@ -30,11 +31,17 @@ def label_run_error(note: Verb | Vocab) -> str:
         return note.transliteration
 
 
-def label_dryrun(note: Verb | Vocab) -> str:
-    if isinstance(note, Verb):
-        return f"{note.verb} / {note.tense}"
-    elif isinstance(note, Vocab):
-        return f"{note.transliteration} / {note.meaning}"
+def label_dryrun(note: Verb | Vocab, operation: str) -> str:
+    if operation == "create":
+        if isinstance(note, Verb):
+            return f"CREATE {note.verb} / {note.tense}"
+        elif isinstance(note, Vocab):
+            return f"CREATE {note.transliteration} / {note.meaning}"
+    if operation == "update":
+        if isinstance(note, Verb):
+            return f"UPDATE {note.verb} / {note.tense}"
+        elif isinstance(note, Vocab):
+            return f"UPDATE {note.transliteration} / {note.meaning}"
 
 
 def run_import(notes, add_fn, deck, model, label_fn):
@@ -64,22 +71,32 @@ def run_import(notes, add_fn, deck, model, label_fn):
 def run_dryrun(notes, label_fn):
     to_create = 0
     no_op = 0
+    to_update = 0
 
     for note in notes:
         if isinstance(note, Verb):
             if not check_note_verb(note.verb, note.tense):
                 to_create += 1
-                logging.info(f"CREATE {label_fn(note)}")
+                logging.info(f"{label_fn(note,"create")}")
             else:
                 no_op += 1
+            if toUpdate(note):
+                ###TODO: Add all the changes that will be applied in the dryrun ,
+                ###Return gives a list of all the field that will changes the initial and the desired value
+                to_update += 1
+                logging.info(f"{label_fn(note,"update")}")
+
         if isinstance(note, Vocab):
             if not check_note_vocab(note.transliteration):
                 to_create += 1
-                logging.info(f"CREATE {label_fn(note)}")
+                logging.info(f"{label_fn(note,"create")}")
             else:
                 no_op += 1
+            if toUpdate(note):
+                to_update += 1
+                logging.info(f"{label_fn(note,"update")}")
 
-    logging.info(f"Summary: {to_create} create, {no_op} no-op")
+    logging.info(f"Summary: {to_create} create, {no_op} no-op, {to_update} to update")
 
 
 def main():
@@ -88,10 +105,7 @@ def main():
         "type", type=str, help="type of notes", choices=["verb", "vocab", "sentence"]
     )
     parser.add_argument("csv", type=str, help="the csv file")
-    parser.add_argument(
-        "--dry-run", help="preview cards that will be added", action="store_true"
-    )
-    parser.add_argument("--apply", help="create cards")
+    parser.add_argument("--apply", help="create cards", action="store_true")
     args = parser.parse_args()
 
     target_file = Path(args.csv)
@@ -99,60 +113,25 @@ def main():
         print("The target file doesn't exist")
         raise SystemExit(1)
 
-    if args.dry_run:
-        if args.type == "verb":
-            try:
-                filepath_verb = args.csv
-                verbs = parse_verb(filepath_verb)
-            except FileNotFoundError:
-                logging.error(f"Could not open file: {filepath_verb}")
-                sys.exit(1)
-            run_dryrun(
-                verbs,
-                label_run_error,
-            )
+    # choisir les bons "outils" selon le type — UNE seule fois
+    if args.type == "verb":
+        notes = parse_verb(args.csv)
+        add_fn = add_notes_verb
+        create_model_fn = create_model_verb
+        deck = DECK_NAME_VERB
+        model = MODEL_NAME_VERB
+    elif args.type == "vocab":
+        notes = parse_vocab(args.csv)
+        add_fn = add_notes_vocab
+        create_model_fn = create_model_vocab
+        deck = DECK_NAME_VOCAB
+        model = MODEL_NAME_VOCAB
 
-        if args.type == "vocab":
-            try:
-                filepath_vocab = args.csv
-                vocabs = parse_vocab(filepath_vocab)
-            except FileNotFoundError:
-                logging.error(f"Could not open file: {filepath_vocab}")
-                sys.exit(1)
-            run_dryrun(
-                vocabs,
-                label_run_error,
-            )
-    else:
-        if args.type == "verb":
-            try:
-                filepath_verb = args.csv
-                verbs = parse_verb(filepath_verb)
-            except FileNotFoundError:
-                logging.error(f"Could not open file: {filepath_verb}")
-                sys.exit(1)
-            create_model_verb(MODEL_NAME_VERB)
-            create_deck(DECK_NAME_VERB)
-            run_import(
-                verbs,
-                add_notes_verb,
-                DECK_NAME_VERB,
-                MODEL_NAME_VERB,
-                label_run_error,
-            )
-        if args.type == "vocab":
-            try:
-                filepath_vocab = args.csv
-                vocabs = parse_vocab(filepath_vocab)
-            except FileNotFoundError:
-                logging.error(f"Could not open file: {filepath_vocab}")
-                sys.exit(1)
-            create_model_vocab(MODEL_NAME_VOCAB)
-            create_deck(DECK_NAME_VOCAB)
-            run_import(
-                vocabs,
-                add_notes_vocab,
-                DECK_NAME_VOCAB,
-                MODEL_NAME_VOCAB,
-                label_run_error,
-            )
+    run_dryrun(notes, label_dryrun)
+
+    if args.apply:
+        reponse = input("Apply these changes? [y/N] ").strip().lower()
+        if reponse in ("y", "yes", "o", "oui"):
+            create_model_fn(model)
+            create_deck(deck)
+            run_import(notes, add_fn, deck, model, label_run_error)

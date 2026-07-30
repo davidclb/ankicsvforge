@@ -7,11 +7,16 @@ class Verb:
     meaning: str
     tense: str
     conjugation: dict[str, str]
-    arab: str
+    arabic: str
+    source: str
 
 
 @dataclass
 class Vocab:
     transliteration: str
     meaning: str
-    arab: str
+    arabic: str
+    dual: str
+    feminine: str
+    plural: str
+    source: str
