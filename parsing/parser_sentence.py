@@ -1,7 +1,7 @@
 import csv
 from pathlib import Path
 
-from models.models import Sentence, Vocab
+from models.models import Sentence
 
 
 def parse_sentence(filepath: str | Path) -> list[Sentence]:
@@ -10,13 +10,14 @@ def parse_sentence(filepath: str | Path) -> list[Sentence]:
             reader = csv.DictReader(csvfile)
             sentences = []
             for row in reader:
-                # Skip if the the line contains a time
-                if all(v == "" for k, v in row.items() if k != "transliteration"):
+                # skip date separator lines (only 'topic' filled)
+                if all(v == "" for k, v in row.items() if k != "topic"):
                     continue
                 sentences.append(
                     Sentence(
                         row["topic"],
                         row["order"],
+                        row["type"],
                         row["transliteration"],
                         row["meaning"],
                         row["arabic"],
