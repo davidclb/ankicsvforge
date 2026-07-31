@@ -2,7 +2,7 @@ import logging
 from typing import Any
 
 from anki.api import invoke
-from models.models import Verb, Vocab
+from models.models import Grammar, Sentence, Verb, Vocab
 
 PRONOUNS = ["Ana", "Enta", "Ente", "Houwe", "Hiye", "Nehna", "Ento", "Henne"]
 INORDERFIELDS_VERB = [
@@ -28,6 +28,24 @@ INORDERFIELDS_VOCAB = [
     "Dual",
     "Feminine",
     "Plural",
+    "Source",
+]
+
+INORDERFIELDS_SENTENCE = [
+    "Topic",
+    "Order",
+    "Type",
+    "Transliteration",
+    "Meaning",
+    "Arabic",
+    "Source",
+]
+
+INORDERFIELDS_GRAMMAR = [
+    "Rule",
+    "Explanation",
+    "Example",
+    "Arabic",
     "Source",
 ]
 
@@ -132,6 +150,75 @@ hr, hr#answer {
 .conj-row:last-child { border-bottom: none; }
 .conj-pro { font-size: 13px; color: #8A9584; font-weight: 600; }
 .conj-form { font-size: 18px; color: #445A2C; font-weight: 600; }
+
+/* keep a readable column on wide screens */
+.card > * { max-width: 640px; margin-left: auto; margin-right: auto; }
+
+/* type badge for sentences (question / answer / text) */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #6E8455;
+  font-weight: 700;
+  border: 1px solid rgba(110,132,85,.4);
+  border-radius: 999px;
+  padding: 3px 12px;
+  margin-bottom: 14px;
+}
+
+/* sentence cards: long text, read comfortably (left-aligned, wider) */
+.sentence {
+  font-size: 20px;
+  font-weight: 600;
+  color: #445A2C;
+  line-height: 1.6;
+  text-align: left;
+  max-width: 60ch;
+}
+.sentence-tr {
+  font-size: 16px;
+  color: #6B6459;
+  line-height: 1.6;
+  text-align: left;
+  max-width: 60ch;
+  margin-top: 6px;
+}
+
+/* grammar cards: rule + explanation + example */
+.rule {
+  font-size: 22px;
+  font-weight: 700;
+  color: #354031;
+}
+.explanation {
+  font-size: 17px;
+  color: #4A4A3A;
+  line-height: 1.6;
+  text-align: left;
+  max-width: 60ch;
+  margin-top: 4px;
+}
+.example {
+  font-size: 15px;
+  color: #445A2C;
+  font-style: italic;
+  background: #FDFBF4;
+  border-left: 3px solid #6E8455;
+  border-radius: 6px;
+  padding: 10px 14px;
+  text-align: left;
+  max-width: 60ch;
+  margin-top: 12px;
+}
+
+/* responsive: shrink arabic on small screens (AnkiDroid) */
+@media (max-width: 420px) {
+  .arabic { font-size: 30px; }
+  .translit { font-size: 26px; }
+  .prompt, .rule { font-size: 20px; }
+}
 """
 
 
@@ -163,33 +250,53 @@ def build_field_vocab(vocab: Vocab) -> dict:
     }
 
 
+def build_field_sentence(sentence: Sentence) -> dict:
+    return {
+        "Topic": sentence.topic,
+        "Order": sentence.order,
+        "Type": sentence.type,
+        "Transliteration": sentence.transliteration,
+        "Meaning": sentence.meaning,
+        "Arabic": sentence.arabic,
+        "Source": sentence.source,
+    }
+
+
+def build_field_grammar(grammar: Grammar) -> dict:
+    return {
+        "Rule": grammar.rule,
+        "Explanation": grammar.explanation,
+        "Example": grammar.example,
+        "Arabic": grammar.arabic,
+        "Source": grammar.source,
+    }
+
+
 def check_model(modelName: str) -> bool:
     models = invoke("modelNames")
     return modelName in models
 
 
-def get_note_verb_id(verb: str, tense: str) -> int:
-    params_findNotes = {"query": f'"Verb:{verb}" "Tense:{tense}"'}
-    result = invoke("findNotes", **params_findNotes)
+def natural_key_query(note: Verb | Vocab | Sentence | Grammar) -> str:
+    if isinstance(note, Verb):
+        return f'"Verb:{note.verb}" "Tense:{note.tense}"'
+    if isinstance(note, Vocab):
+        return f'"Transliteration:{note.transliteration}"'
+    if isinstance(note, Sentence):
+        return f'"Topic:{note.topic}" "Order:{note.order}"'
+    if isinstance(note, Grammar):
+        return f'"Rule:{note.rule}"'
+    raise ValueError(f"Unknown note type: {type(note)}")
+
+
+def get_note_id(note: Verb | Vocab | Sentence | Grammar) -> list[int]:
+    result = invoke("findNotes", query=natural_key_query(note))
     return result
 
 
-def get_note_vocab_id(transliteration: str) -> int:
-    params_findNotes = {"query": f'"Transliteration:{transliteration}"'}
-    result = invoke("findNotes", **params_findNotes)
-    return result
-
-
-def check_note_verb(verb: str, tense: str) -> bool:
-    params_findNotes = {"query": f'"Verb:{verb}" "Tense:{tense}"'}
-    result = invoke("findNotes", **params_findNotes)
-    return result != []
-
-
-def check_note_vocab(transliteration: str) -> bool:
-    params_findNotes = {"query": f'"Transliteration:{transliteration}"'}
-    result = invoke("findNotes", **params_findNotes)
-    return result != []
+def check_note(note: Verb | Vocab | Sentence | Grammar) -> bool:
+    """True if a note with this natural key already exists."""
+    return get_note_id(note) != []
 
 
 def make_template(pronom: str) -> dict:
@@ -259,6 +366,61 @@ def create_model_vocab(modelName: str):
         invoke("createModel", **params)
 
 
+def create_model_sentence(modelName: str):
+    params = {
+        "modelName": modelName,
+        "inOrderFields": INORDERFIELDS_SENTENCE,
+        "css": SHARED_CSS,
+        "isCloze": False,
+        "cardTemplates": [
+            {
+                "Name": "Card SENTENCE",
+                "Front": """{{#Type}}<div class="badge">{{Type}}</div>{{/Type}}
+<div class="sentence-tr">{{Meaning}}</div>""",
+                "Back": """{{#Type}}<div class="badge">{{Type}}</div>{{/Type}}
+<div class="sentence-tr">{{Meaning}}</div>
+<hr>
+<div class="sentence">{{Transliteration}}</div>
+{{#Arabic}}<div class="arabic">{{Arabic}}</div>{{/Arabic}}
+{{#Source}}<div class="source">{{Source}}</div>{{/Source}}""",
+            }
+        ],
+    }
+    if check_model(modelName):
+        logging.info(f"{modelName} model already exist")
+    else:
+        logging.info(f"{modelName} model doesn't exist")
+        logging.info("Creating...")
+        invoke("createModel", **params)
+
+
+def create_model_grammar(modelName: str):
+    params = {
+        "modelName": modelName,
+        "inOrderFields": INORDERFIELDS_GRAMMAR,
+        "css": SHARED_CSS,
+        "isCloze": False,
+        "cardTemplates": [
+            {
+                "Name": "Card GRAMMAR",
+                "Front": '<div class="rule">{{Rule}}</div>',
+                "Back": """<div class="rule">{{Rule}}</div>
+<hr>
+<div class="explanation">{{Explanation}}</div>
+{{#Example}}<div class="example">{{Example}}</div>{{/Example}}
+{{#Arabic}}<div class="arabic">{{Arabic}}</div>{{/Arabic}}
+{{#Source}}<div class="source">{{Source}}</div>{{/Source}}""",
+            }
+        ],
+    }
+    if check_model(modelName):
+        logging.info(f"{modelName} model already exist")
+    else:
+        logging.info(f"{modelName} model doesn't exist")
+        logging.info("Creating...")
+        invoke("createModel", **params)
+
+
 def check_deck(deckName: str) -> bool:
     decks = invoke("deckNames")
     return deckName in decks
@@ -294,7 +456,7 @@ def add_notes_verb(verb: Verb, deckName: str, modelName: str) -> bool:
         }
     }
     # verifier d'abord que la note existe ou pas
-    if check_note_verb(verb.verb, verb.tense):
+    if check_note(verb):
         logging.info(f"Note for {verb.verb} {verb.tense} already exist")
         return False
     else:
@@ -323,7 +485,7 @@ def add_notes_vocab(vocab: Vocab, deckName: str, modelName: str) -> bool:
         }
     }
     # verifier d'abord que la note existe ou pas
-    if check_note_vocab(vocab.transliteration):
+    if check_note(vocab):
         logging.info(f"Note for {vocab.transliteration} already exist")
         return False
 
@@ -333,62 +495,102 @@ def add_notes_vocab(vocab: Vocab, deckName: str, modelName: str) -> bool:
         return True
 
 
-def updateNotefields(elem: Verb | Vocab):
+def add_notes_sentence(sentence: Sentence, deckName: str, modelName: str) -> bool:
+    params_addNote = {
+        "note": {
+            "deckName": deckName,
+            "modelName": modelName,
+            "fields": build_field_sentence(sentence),
+            "options": {
+                "allowDuplicate": False,
+                "duplicateScope": "deck",
+                "duplicateScopeOptions": {
+                    "deckName": "Default",
+                    "checkChildren": False,
+                    "checkAllModels": False,
+                },
+            },
+            "tags": ["type::sentence"],
+        }
+    }
+    # verifier d'abord que la note existe ou pas
+    if check_note(sentence):
+        logging.info(f"Note for {sentence.topic} - {sentence.order} already exist")
+        return False
+
+    else:
+        logging.info(f"Creation of note for {sentence.topic} - {sentence.order} ")
+        invoke("addNote", **params_addNote)
+        return True
+
+
+def add_notes_grammar(grammar: Grammar, deckName: str, modelName: str) -> bool:
+    params_addNote = {
+        "note": {
+            "deckName": deckName,
+            "modelName": modelName,
+            "fields": build_field_grammar(grammar),
+            "options": {
+                "allowDuplicate": False,
+                "duplicateScope": "deck",
+                "duplicateScopeOptions": {
+                    "deckName": "Default",
+                    "checkChildren": False,
+                    "checkAllModels": False,
+                },
+            },
+            "tags": ["type::grammar"],
+        }
+    }
+    # verifier d'abord que la note existe ou pas
+    if check_note(grammar):
+        logging.info(f"Note for {grammar.rule} already exist")
+        return False
+
+    else:
+        logging.info(f"Creation of note for {grammar.rule}")
+        invoke("addNote", **params_addNote)
+        return True
+
+
+def build_fields(elem: Verb | Vocab | Sentence | Grammar) -> dict:
+    """Dispatch to the right build_field_* according to the note type."""
     if isinstance(elem, Verb):
-        if toUpdate(elem):
-            note_id = get_note_verb_id(elem.verb, elem.tense)
-            desired_state = build_field_verb(elem)
-            params_updateNoteFields = {
-                "note": {
-                    "id": note_id,
-                    "fields": desired_state,
-                }
-            }
-            invoke("updateNoteFields", **params_updateNoteFields)
+        return build_field_verb(elem)
     if isinstance(elem, Vocab):
-        if toUpdate(elem):
-            note_id = get_note_vocab_id(elem.transliteration)
-            desired_state = build_field_vocab(elem)
-            params_updateNoteFields = {
-                "note": {
-                    "id": note_id,
-                    "fields": desired_state,
-                }
+        return build_field_vocab(elem)
+    if isinstance(elem, Sentence):
+        return build_field_sentence(elem)
+    if isinstance(elem, Grammar):
+        return build_field_grammar(elem)
+    raise ValueError(f"Unknown note type: {type(elem)}")
+
+
+def toUpdate(elem: Verb | Vocab | Sentence | Grammar) -> bool:
+    """True if the existing note differs from the desired (CSV) state."""
+    note_id = get_note_id(elem)
+    if not note_id:
+        return False  # no existing note -> not an update (it's a create)
+    result = invoke("notesInfo", notes=note_id)
+    actual_state = result[0]["fields"]
+    desired_state = build_fields(elem)
+    for field, desired_value in desired_state.items():
+        actual_value = actual_state[field][
+            "value"
+        ]  # value level, not object comparison
+        if actual_value != desired_value:
+            return True
+    return False
+
+
+def updateNotefields(elem: Verb | Vocab | Sentence | Grammar):
+    """Update an existing note in place (preserves SRS) if its content changed."""
+    if toUpdate(elem):
+        note_id = get_note_id(elem)
+        params_updateNoteFields = {
+            "note": {
+                "id": note_id[0],
+                "fields": build_fields(elem),
             }
-            invoke("updateNoteFields", **params_updateNoteFields)
-
-
-def toUpdate(elem: Verb | Vocab) -> bool:
-    if isinstance(elem, Verb):
-        note_id = get_note_verb_id(elem.verb, elem.tense)
-        params_noteInfo = {"notes": note_id}
-        result = invoke("notesInfo", **params_noteInfo)
-        actual_state = result[0]["fields"]
-        desired_state = build_field_verb(elem)
-        if actual_state == desired_state:
-            return False
-        else:
-            for field, desired_value in desired_state.items():
-                actual_value = actual_state[field]["value"]
-                if (
-                    actual_value != desired_value
-                ):  ## value level , not direct comparison between objects
-                    return True
-            return False
-    elif isinstance(elem, Vocab):
-        note_id = 0
-        note_id = get_note_vocab_id(elem.transliteration)
-        params_noteInfo = {"notes": note_id}
-        result = invoke("notesInfo", **params_noteInfo)
-        actual_state = result[0]["fields"]
-        desired_state = build_field_vocab(elem)
-        if actual_state == desired_state:
-            return False
-        else:
-            for field, desired_value in desired_state.items():
-                actual_value = actual_state[field]["value"]
-                if (
-                    actual_value != desired_value
-                ):  ## value level , not direct comparison between objects
-                    return True
-            return False
+        }
+        invoke("updateNoteFields", **params_updateNoteFields)
