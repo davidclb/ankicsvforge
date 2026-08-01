@@ -1,8 +1,14 @@
 import logging
+from pathlib import Path
 from typing import Any
 
 from anki.api import invoke
 from models.models import Grammar, Sentence, Verb, Vocab
+
+MODEL_NAME_VERB = "LebaneseConjugator"
+MODEL_NAME_VOCAB = "LebaneseVocab"
+MODEL_NAME_SENTENCE = "LebaneseSentence"
+MODEL_NAME_GRAMMAR = "LebaneseGrammar"
 
 PRONOUNS = ["Ana", "Enta", "Ente", "Houwe", "Hiye", "Nehna", "Ento", "Henne"]
 INORDERFIELDS_VERB = [
@@ -49,177 +55,7 @@ INORDERFIELDS_GRAMMAR = [
     "Source",
 ]
 
-SHARED_CSS = """
-.card {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  background: #F7F2E4;
-  color: #354031;
-  text-align: center;
-  padding: 34px 22px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* front: the prompt (meaning, or verb+tense) */
-.prompt {
-  font-size: 22px;
-  font-weight: 500;
-  color: #354031;
-}
-.prompt .gloss { opacity: .6; }
-
-/* tense label (conjugation) */
-.tense {
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #6E8455;
-  font-weight: 700;
-  margin-top: 10px;
-}
-
-/* type-in field — Anki injects it, we style the input */
-input[type=text] {
-  font-family: inherit;
-  font-size: 18px;
-  text-align: center;
-  color: #354031;
-  background: #FDFBF4;
-  border: 1.5px solid #C7CBB6;
-  border-radius: 9px;
-  padding: 8px 14px;
-  margin-top: 14px;
-}
-
-/* vocab answer: transliteration then arabic */
-.translit {
-  font-size: 30px;
-  font-weight: 700;
-  color: #445A2C;
-  letter-spacing: -0.01em;
-}
-.arabic {
-  font-family: 'Noto Naskh Arabic', 'Traditional Arabic', 'Geeza Pro', serif;
-  direction: rtl;
-  font-size: 38px;
-  font-weight: 600;
-  color: #354031;
-  margin-top: 4px;
-}
-
-/* divider */
-hr, hr#answer {
-  border: none;
-  height: 1px;
-  background: rgba(80,90,55,.16);
-  width: 55%;
-  margin: 16px auto;
-}
-
-/* secondary info (forms, variants) */
-.forms {
-  font-size: 15px;
-  color: #8A9584;
-  margin-top: 4px;
-}
-
-/* word origin (song, series...) */
-.source {
-  font-size: 12px;
-  color: #A79B82;
-  font-style: italic;
-  margin-top: 10px;
-}
-
-/* conjugation table (back) */
-.conj {
-  background: #FDFBF4;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px rgba(80,90,55,.14);
-  padding: 6px 16px;
-  max-width: 420px;
-  margin: 6px auto 0;
-}
-.conj-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 7px 0;
-  border-bottom: 1px solid rgba(80,90,55,.12);
-}
-.conj-row:last-child { border-bottom: none; }
-.conj-pro { font-size: 13px; color: #8A9584; font-weight: 600; }
-.conj-form { font-size: 18px; color: #445A2C; font-weight: 600; }
-
-/* keep a readable column on wide screens */
-.card > * { max-width: 640px; margin-left: auto; margin-right: auto; }
-
-/* type badge for sentences (question / answer / text) */
-.badge {
-  display: inline-block;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #6E8455;
-  font-weight: 700;
-  border: 1px solid rgba(110,132,85,.4);
-  border-radius: 999px;
-  padding: 3px 12px;
-  margin-bottom: 14px;
-}
-
-/* sentence cards: long text, read comfortably (left-aligned, wider) */
-.sentence {
-  font-size: 20px;
-  font-weight: 600;
-  color: #445A2C;
-  line-height: 1.6;
-  text-align: left;
-  max-width: 60ch;
-}
-.sentence-tr {
-  font-size: 16px;
-  color: #6B6459;
-  line-height: 1.6;
-  text-align: left;
-  max-width: 60ch;
-  margin-top: 6px;
-}
-
-/* grammar cards: rule + explanation + example */
-.rule {
-  font-size: 22px;
-  font-weight: 700;
-  color: #354031;
-}
-.explanation {
-  font-size: 17px;
-  color: #4A4A3A;
-  line-height: 1.6;
-  text-align: left;
-  max-width: 60ch;
-  margin-top: 4px;
-}
-.example {
-  font-size: 15px;
-  color: #445A2C;
-  font-style: italic;
-  background: #FDFBF4;
-  border-left: 3px solid #6E8455;
-  border-radius: 6px;
-  padding: 10px 14px;
-  text-align: left;
-  max-width: 60ch;
-  margin-top: 12px;
-}
-
-/* responsive: shrink arabic on small screens (AnkiDroid) */
-@media (max-width: 420px) {
-  .arabic { font-size: 30px; }
-  .translit { font-size: 26px; }
-  .prompt, .rule { font-size: 20px; }
-}
-"""
+SHARED_CSS = (Path(__file__).parent / "card.css").read_text(encoding="utf-8")
 
 
 def build_field_verb(verb: Verb) -> dict:
@@ -278,14 +114,15 @@ def check_model(modelName: str) -> bool:
 
 
 def natural_key_query(note: Verb | Vocab | Sentence | Grammar) -> str:
+    # restrict to our own note-type so we never match notes from other decks/models
     if isinstance(note, Verb):
-        return f'"Verb:{note.verb}" "Tense:{note.tense}"'
+        return f'"note:{MODEL_NAME_VERB}" "Verb:{note.verb}" "Tense:{note.tense}"'
     if isinstance(note, Vocab):
-        return f'"Transliteration:{note.transliteration}"'
+        return f'"note:{MODEL_NAME_VOCAB}" "Transliteration:{note.transliteration}"'
     if isinstance(note, Sentence):
-        return f'"Topic:{note.topic}" "Order:{note.order}"'
+        return f'"note:{MODEL_NAME_SENTENCE}" "Topic:{note.topic}" "Order:{note.order}"'
     if isinstance(note, Grammar):
-        return f'"Rule:{note.rule}"'
+        return f'"note:{MODEL_NAME_GRAMMAR}" "Rule:{note.rule}"'
     raise ValueError(f"Unknown note type: {type(note)}")
 
 
@@ -317,32 +154,40 @@ def make_template(pronom: str) -> dict:
     }
 
 
+def ensure_model(modelName: str, inOrderFields: list, cardTemplates: list):
+    """Create the model if missing, otherwise update its CSS and templates
+    so that SHARED_CSS / templates stay the source of truth for presentation."""
+    if not check_model(modelName):
+        logging.info(f"{modelName} model doesn't exist, creating...")
+        invoke(
+            "createModel",
+            modelName=modelName,
+            inOrderFields=inOrderFields,
+            css=SHARED_CSS,
+            isCloze=False,
+            cardTemplates=cardTemplates,
+        )
+        return
+
+    logging.info(f"{modelName} model exists, updating styling and templates...")
+    invoke("updateModelStyling", model={"name": modelName, "css": SHARED_CSS})
+    templates = {t["Name"]: {"Front": t["Front"], "Back": t["Back"]} for t in cardTemplates}
+    invoke("updateModelTemplates", model={"name": modelName, "templates": templates})
+
+
 def create_model_verb(modelName: str):
-
-    params = {
-        "modelName": modelName,
-        "inOrderFields": INORDERFIELDS_VERB,
-        "css": SHARED_CSS,
-        "isCloze": False,
-        "cardTemplates": [make_template(p) for p in PRONOUNS],
-    }
-    if check_model(modelName):
-        logging.info(f"{modelName} model already exist")
-
-    else:
-        logging.info(f"{modelName} model doesn't exist")
-        logging.info("Creating...")
-        invoke("createModel", **params)
+    ensure_model(
+        modelName,
+        INORDERFIELDS_VERB,
+        [make_template(p) for p in PRONOUNS],
+    )
 
 
 def create_model_vocab(modelName: str):
-
-    params = {
-        "modelName": modelName,
-        "inOrderFields": INORDERFIELDS_VOCAB,
-        "css": SHARED_CSS,
-        "isCloze": False,
-        "cardTemplates": [
+    ensure_model(
+        modelName,
+        INORDERFIELDS_VOCAB,
+        [
             {
                 "Name": "Card VOCAB",
                 "Front": '<div class="prompt">{{Meaning}}</div>',
@@ -356,23 +201,14 @@ def create_model_vocab(modelName: str):
                 {{#Source}}<div class="source">{{Source}}</div>{{/Source}}""",
             }
         ],
-    }
-    if check_model(modelName):
-        logging.info(f"{modelName} model already exist")
-
-    else:
-        logging.info(f"{modelName} model doesn't exist")
-        logging.info("Creating...")
-        invoke("createModel", **params)
+    )
 
 
 def create_model_sentence(modelName: str):
-    params = {
-        "modelName": modelName,
-        "inOrderFields": INORDERFIELDS_SENTENCE,
-        "css": SHARED_CSS,
-        "isCloze": False,
-        "cardTemplates": [
+    ensure_model(
+        modelName,
+        INORDERFIELDS_SENTENCE,
+        [
             {
                 "Name": "Card SENTENCE",
                 "Front": """{{#Type}}<div class="badge">{{Type}}</div>{{/Type}}
@@ -385,22 +221,14 @@ def create_model_sentence(modelName: str):
 {{#Source}}<div class="source">{{Source}}</div>{{/Source}}""",
             }
         ],
-    }
-    if check_model(modelName):
-        logging.info(f"{modelName} model already exist")
-    else:
-        logging.info(f"{modelName} model doesn't exist")
-        logging.info("Creating...")
-        invoke("createModel", **params)
+    )
 
 
 def create_model_grammar(modelName: str):
-    params = {
-        "modelName": modelName,
-        "inOrderFields": INORDERFIELDS_GRAMMAR,
-        "css": SHARED_CSS,
-        "isCloze": False,
-        "cardTemplates": [
+    ensure_model(
+        modelName,
+        INORDERFIELDS_GRAMMAR,
+        [
             {
                 "Name": "Card GRAMMAR",
                 "Front": '<div class="rule">{{Rule}}</div>',
@@ -412,13 +240,7 @@ def create_model_grammar(modelName: str):
 {{#Source}}<div class="source">{{Source}}</div>{{/Source}}""",
             }
         ],
-    }
-    if check_model(modelName):
-        logging.info(f"{modelName} model already exist")
-    else:
-        logging.info(f"{modelName} model doesn't exist")
-        logging.info("Creating...")
-        invoke("createModel", **params)
+    )
 
 
 def check_deck(deckName: str) -> bool:
