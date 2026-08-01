@@ -94,7 +94,8 @@ def run_import(notes: Verb | Vocab | Sentence | Grammar, add_fn, deck, model, la
         logging.info(f"couldn't create note for {label_fn(error)}")
 
 
-def run_dryrun(notes: Verb | Vocab | Sentence | Grammar, label_fn):
+def run_dryrun(notes: Verb | Vocab | Sentence | Grammar, label_fn) -> int:
+    """Print the plan and return the number of pending changes (create + update)."""
     to_create = 0
     no_op = 0
     to_update = 0
@@ -110,6 +111,7 @@ def run_dryrun(notes: Verb | Vocab | Sentence | Grammar, label_fn):
         else:
             no_op += 1
     logging.info(f"Summary: {to_create} create, {no_op} no-op, {to_update} to update")
+    return to_create + to_update
 
 
 def main():
@@ -155,9 +157,12 @@ def main():
         deck = DECK_NAME_GRAMMAR
         model = MODEL_NAME_GRAMMAR
 
-    run_dryrun(notes, label_dryrun)
+    nb_changes = run_dryrun(notes, label_dryrun)
 
     if args.apply:
+        if nb_changes == 0:
+            logging.info("Nothing to apply.")
+            return
         reponse = input("Apply these changes? [y/N] ").strip().lower()
         if reponse in ("y", "yes", "o", "oui"):
             create_model_fn(model)
