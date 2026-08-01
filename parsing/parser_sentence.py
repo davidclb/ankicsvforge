@@ -10,8 +10,8 @@ def parse_sentence(filepath: str | Path) -> list[Sentence]:
             reader = csv.DictReader(csvfile)
             sentences = []
             for row in reader:
-                # skip date separator lines (only 'topic' filled)
-                if all(v == "" for k, v in row.items() if k != "topic"):
+                # skip date separator lines (only 'topic' filled; rest empty or missing)
+                if all(not v for k, v in row.items() if k != "topic"):
                     continue
                 sentences.append(
                     Sentence(

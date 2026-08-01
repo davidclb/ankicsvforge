@@ -11,7 +11,7 @@ def parse_vocab(filepath: str | Path) -> list[Vocab]:
             vocabs = []
             for row in reader:
                 # Skip if the the line contains a time
-                if all(v == "" for k, v in row.items() if k != "transliteration"):
+                if all(not v for k, v in row.items() if k != "transliteration"):
                     continue
                 vocabs.append(
                     Vocab(

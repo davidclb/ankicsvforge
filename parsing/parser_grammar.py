@@ -11,7 +11,7 @@ def parse_grammar(filepath: str | Path) -> list[Grammar]:
             grammars = []
             for row in reader:
                 # skip date separator lines (only 'rule' filled, rest empty)
-                if all(v == "" for k, v in row.items() if k != "rule"):
+                if all(not v for k, v in row.items() if k != "rule"):
                     continue
                 grammars.append(
                     Grammar(
