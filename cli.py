@@ -74,14 +74,13 @@ def run_import(notes: Verb | Vocab | Sentence | Grammar, add_fn, deck, model, la
     for note in notes:
         try:
             if not check_note(note):
-                created = add_fn(note, deck, model)
-                if created:
-                    nb_created += 1
-                else:
-                    nb_skipped += 1
-            else:
+                add_fn(note, deck, model)
+                nb_created += 1
+            elif toUpdate(note):
                 updateNotefields(note)
                 nb_updated += 1
+            else:
+                nb_skipped += 1
 
         except Exception as e:
             logging.error(f"couldn't create note for {label_fn(note)}")
